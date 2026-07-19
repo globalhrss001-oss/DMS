@@ -1,0 +1,213 @@
+rules_version = '2';
+
+// ===============================================================
+// Global HR DMS - Firestore Security Rules (PROTOTYPE)
+// ===============================================================
+//
+// Assumed Data Model
+// ---------------------------------------------------------------
+// Collection: users
+// Document ID: {uid} (matches Firebase Auth uid)
+// Fields:
+//   - email: string (required)
+//   - displayName: string (required)
+//   - role: string (required, one of 'admin' | 'recruiter', immutable by self)
+//   - createdAt: timestamp (optional, immutable)
+//
+// Collection: candidates
+// Document ID: auto
+// Fields:
+//   - fullName: string (required, 1..100)
+//   - email: string (required, <=200, may be empty)
+//   - phone: string (required, <=40, may be empty)
+//   - status: string (required, 'active'|'placed'|'archived')
+//   - tags: list<string> (required, <=20 items, each <=30 chars)
+//   - createdBy: string (required, == creator uid, immutable)
+//   - createdAt: timestamp (optional, immutable)
+//   - driveFolderId: string (optional, set server-side)
+//
+// Collection: jobs
+// Document ID: auto
+// Fields:
+//   - title: string (required, 1..150)
+//   - clientName: string (required, <=150)
+//   - status: string (required, 'open'|'closed')
+//   - createdAt: timestamp (optional, immutable)
+//
+// Collection: documents  (metadata for files stored in Firebase Storage)
+//   - read: authenticated staff
+//   - create: authenticated staff, validated; uploadedBy == uid; status 'active'
+//   - update: admins only, and only to soft-delete (status -> 'deleted')
+//   - delete: denied (soft-delete only)
+//
+// Collection: auditLogs  (append-only activity trail)
+//   - read: admins only
+//   - create: authenticated staff, validated; actorUid == uid
+//   - update/delete: denied (immutable)
+// ===============================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------------- Helper functions ----------------
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function userDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+        userDoc().role == 'admin';
+    }
+
+    function isStaff() {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    function validStr(field, minLen, maxLen) {
+      return request.resource.data[field] is string &&
+        request.resource.data[field].size() >= minLen &&
+        request.resource.data[field].size() <= maxLen;
+    }
+
+    function unchanged(field) {
+      return !(field in request.resource.data) ||
+        (field in resource.data && request.resource.data[field] == resource.data[field]);
+    }
+
+    function validTags() {
+      return request.resource.data.tags is list &&
+        request.resource.data.tags.size() <= 20;
+    }
+
+    // ---------------- users ----------------
+    // PII (email) lives here: restrict reads to the owner or an admin.
+    function isValidUserSelf() {
+      return hasRequiredFields(['email', 'displayName', 'role']) &&
+        hasOnlyAllowedFields(['email', 'displayName', 'role', 'createdAt']) &&
+        validStr('email', 3, 200) &&
+        validStr('displayName', 1, 100) &&
+        request.resource.data.role == 'recruiter';
+    }
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      // A user may create ONLY their own profile and ONLY as 'recruiter'.
+      // Admins (bootstrapped/console) may create any profile.
+      allow create: if (isOwner(userId) && isValidUserSelf()) || isAdmin();
+      // Self-updates may not change role; admins may update anything valid.
+      allow update: if isAdmin() ||
+        (isOwner(userId) &&
+         hasOnlyAllowedFields(['email', 'displayName', 'role', 'createdAt']) &&
+         request.resource.data.role == resource.data.role &&
+         unchanged('createdAt'));
+      allow delete: if isAdmin();
+    }
+
+    // ---------------- candidates ----------------
+    function isValidCandidate() {
+      return hasRequiredFields(['fullName', 'email', 'phone', 'status', 'tags', 'createdBy']) &&
+        hasOnlyAllowedFields(['fullName', 'email', 'phone', 'status', 'tags', 'createdBy', 'createdAt', 'driveFolderId']) &&
+        validStr('fullName', 1, 100) &&
+        request.resource.data.email is string && request.resource.data.email.size() <= 200 &&
+        request.resource.data.phone is string && request.resource.data.phone.size() <= 40 &&
+        request.resource.data.status in ['active', 'placed', 'archived'] &&
+        validTags() &&
+        (!('driveFolderId' in request.resource.data) ||
+          (request.resource.data.driveFolderId is string &&
+           request.resource.data.driveFolderId.size() <= 200));
+    }
+
+    match /candidates/{candidateId} {
+      allow read: if isStaff();
+      allow create: if isStaff() &&
+        isValidCandidate() &&
+        request.resource.data.createdBy == request.auth.uid;
+      allow update: if isStaff() &&
+        isValidCandidate() &&
+        unchanged('createdBy') &&
+        unchanged('createdAt');
+      allow delete: if isAdmin();
+    }
+
+    // ---------------- jobs ----------------
+    function isValidJob() {
+      return hasRequiredFields(['title', 'clientName', 'status']) &&
+        hasOnlyAllowedFields(['title', 'clientName', 'status', 'createdAt']) &&
+        validStr('title', 1, 150) &&
+        request.resource.data.clientName is string &&
+        request.resource.data.clientName.size() <= 150 &&
+        request.resource.data.status in ['open', 'closed'];
+    }
+
+    match /jobs/{jobId} {
+      allow read: if isStaff();
+      allow create: if isStaff() && isValidJob();
+      allow update: if isStaff() && isValidJob() && unchanged('createdAt');
+      allow delete: if isAdmin();
+    }
+
+    // ---------------- documents ----------------
+    // Files live in Firebase Storage; this holds their metadata. Staff create
+    // records after a successful upload; the actual bytes are guarded by
+    // Storage security rules.
+    function isValidDocument() {
+      return hasRequiredFields(['candidateId', 'docType', 'fileName', 'mimeType', 'size', 'storagePath', 'uploadedBy', 'status']) &&
+        hasOnlyAllowedFields(['candidateId', 'docType', 'fileName', 'mimeType', 'size', 'storagePath', 'uploadedBy', 'uploadedAt', 'expiresAt', 'status', 'jobId']) &&
+        request.resource.data.candidateId is string &&
+        request.resource.data.docType in ['CV', 'Contract', 'RightToWork', 'ID', 'Other'] &&
+        validStr('fileName', 1, 300) &&
+        request.resource.data.mimeType is string && request.resource.data.mimeType.size() <= 200 &&
+        request.resource.data.size is number && request.resource.data.size >= 0 &&
+        request.resource.data.storagePath is string && request.resource.data.storagePath.size() <= 500 &&
+        request.resource.data.uploadedBy == request.auth.uid &&
+        request.resource.data.status == 'active' &&
+        (!('expiresAt' in request.resource.data) ||
+          request.resource.data.expiresAt == null ||
+          request.resource.data.expiresAt is timestamp);
+    }
+
+    match /documents/{documentId} {
+      allow read: if isStaff();
+      allow create: if isStaff() && isValidDocument();
+      // Soft-delete only: admins may flip status to 'deleted', nothing else.
+      allow update: if isAdmin() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) &&
+        request.resource.data.status == 'deleted';
+      allow delete: if false;
+    }
+
+    // ---------------- auditLogs (append-only) ----------------
+    function isValidAudit() {
+      return hasRequiredFields(['actorUid', 'action', 'targetType', 'targetId']) &&
+        hasOnlyAllowedFields(['actorUid', 'action', 'targetType', 'targetId', 'timestamp', 'meta']) &&
+        request.resource.data.actorUid == request.auth.uid &&
+        request.resource.data.action in ['upload', 'view', 'download', 'delete', 'login'] &&
+        request.resource.data.targetType is string && request.resource.data.targetType.size() <= 50 &&
+        request.resource.data.targetId is string && request.resource.data.targetId.size() <= 200;
+    }
+
+    match /auditLogs/{logId} {
+      allow read: if isAdmin();
+      allow create: if isStaff() && isValidAudit();
+      allow update, delete: if false;
+    }
+  }
+}

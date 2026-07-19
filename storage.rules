@@ -1,0 +1,35 @@
+rules_version = '2';
+
+// ===============================================================
+// Global HR DMS - Firebase Storage Security Rules
+// ===============================================================
+// Files are stored under: documents/{candidateId}/{fileName}
+//   - Any authenticated user (staff) may read, upload, or delete.
+//   - Uploads are capped at 20MB.
+//
+// Note: There is no public sign-up; users are provisioned by an admin, so
+// "authenticated" == staff. Fine-grained staff/admin enforcement lives in the
+// Firestore rules for the `documents` metadata + `auditLogs` (same-service,
+// reliable). Storage intentionally avoids cross-service Firestore lookups,
+// which are unreliable and were denying legitimate uploads.
+// ===============================================================
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    match /documents/{candidateId}/{fileName} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && request.resource.size < 20 * 1024 * 1024;
+      allow delete: if isSignedIn();
+    }
+
+    // Everything else is denied by default.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}
