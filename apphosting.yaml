@@ -8,41 +8,36 @@ runConfig:
   cpu: 1
   memoryMiB: 512
 
-# Public Firebase Web config is safe to expose to the browser.
-# Set these values for your project (see .env.local.example).
+# Public Firebase Web config is safe to expose to the browser (data is
+# protected by Security Rules, not by hiding these client identifiers).
 env:
   - variable: NEXT_PUBLIC_FIREBASE_API_KEY
-    value: ""
+    value: "AIzaSyAK_l3kxvymOwnBgiZGyjV3w2hFwvRndHM"
     availability:
       - BUILD
       - RUNTIME
   - variable: NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN
-    value: ""
+    value: "global-hr-dms.firebaseapp.com"
     availability:
       - BUILD
       - RUNTIME
   - variable: NEXT_PUBLIC_FIREBASE_PROJECT_ID
-    value: ""
+    value: "global-hr-dms"
     availability:
       - BUILD
       - RUNTIME
   - variable: NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
-    value: ""
+    value: "global-hr-dms.firebasestorage.app"
     availability:
       - BUILD
       - RUNTIME
   - variable: NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID
-    value: ""
+    value: "162827183371"
     availability:
       - BUILD
       - RUNTIME
   - variable: NEXT_PUBLIC_FIREBASE_APP_ID
-    value: ""
-    availability:
-      - BUILD
-      - RUNTIME
-  - variable: NEXT_PUBLIC_FUNCTIONS_REGION
-    value: "asia-southeast1"
+    value: "1:162827183371:web:b5c1793ea06bf2c42dee0e"
     availability:
       - BUILD
       - RUNTIME
