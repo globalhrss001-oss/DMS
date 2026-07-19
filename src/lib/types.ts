@@ -12,11 +12,18 @@ export interface AppUser {
 
 export type CandidateStatus = "active" | "placed" | "archived";
 
+/** Preset race options; free text is allowed when the user picks "Other". */
+export const RACE_PRESETS = ["Myanmar", "Bangala", "India"] as const;
+export type RacePreset = (typeof RACE_PRESETS)[number];
+export type RaceChoice = RacePreset | "Other";
+
 export interface Candidate {
   id: string;
   fullName: string;
   email: string;
   phone: string;
+  /** Preset value, or a custom string when the user chose "Other". */
+  race: string;
   status: CandidateStatus;
   tags: string[];
   driveFolderId?: string;

@@ -124,6 +124,7 @@ export default function CandidateProfilePage() {
             <div className="mt-2 space-y-1 text-sm text-slate-500">
               <p>Email: {candidate.email || "—"}</p>
               <p>Phone: {candidate.phone || "—"}</p>
+              <p>Race: {candidate.race}</p>
               {candidate.tags.length > 0 && (
                 <div className="flex flex-wrap gap-1 pt-1">
                   {candidate.tags.map((t) => (

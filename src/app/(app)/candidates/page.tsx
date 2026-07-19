@@ -115,6 +115,7 @@ export default function CandidatesPage() {
               <tr>
                 <th className="px-5 py-2">Name</th>
                 <th className="px-5 py-2">Email</th>
+                <th className="px-5 py-2">Race</th>
                 <th className="px-5 py-2">Tags</th>
                 <th className="px-5 py-2">Status</th>
                 <th className="px-5 py-2">Added</th>
@@ -128,6 +129,7 @@ export default function CandidatesPage() {
                     {c.fullName}
                   </td>
                   <td className="px-5 py-3 text-slate-500">{c.email || "—"}</td>
+                  <td className="px-5 py-3 text-slate-600">{c.race}</td>
                   <td className="px-5 py-3">
                     {c.tags.length === 0 ? (
                       <span className="text-slate-400">—</span>

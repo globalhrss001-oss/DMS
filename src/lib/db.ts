@@ -22,6 +22,7 @@ function mapCandidate(id: string, data: Record<string, unknown>): Candidate {
     fullName: (data.fullName as string) ?? "",
     email: (data.email as string) ?? "",
     phone: (data.phone as string) ?? "",
+    race: (data.race as Candidate["race"]) ?? "Myanmar",
     status: (data.status as Candidate["status"]) ?? "active",
     tags: (data.tags as string[]) ?? [],
     driveFolderId: data.driveFolderId as string | undefined,
@@ -47,7 +48,7 @@ export async function getCandidate(id: string): Promise<Candidate | null> {
 }
 
 export async function createCandidate(
-  input: Pick<Candidate, "fullName" | "email" | "phone" | "status" | "tags">,
+  input: Pick<Candidate, "fullName" | "email" | "phone" | "race" | "status" | "tags">,
   createdBy: string,
 ): Promise<string> {
   const ref = await addDoc(collection(db, "candidates"), {
@@ -60,7 +61,7 @@ export async function createCandidate(
 
 export async function updateCandidate(
   id: string,
-  input: Partial<Pick<Candidate, "fullName" | "email" | "phone" | "status" | "tags">>,
+  input: Partial<Pick<Candidate, "fullName" | "email" | "phone" | "race" | "status" | "tags">>,
 ): Promise<void> {
   await updateDoc(doc(db, "candidates", id), input);
 }
