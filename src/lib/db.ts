@@ -2,6 +2,7 @@ import {
   addDoc,
   collection,
   doc,
+  getCountFromServer,
   getDoc,
   getDocs,
   limit,
@@ -121,6 +122,47 @@ export async function listExpiringDocuments(
       status: data.status,
     } as DocumentRecord;
   });
+}
+
+/**
+ * Most-recently uploaded active documents. Ordered by uploadedAt only (a
+ * single-field index Firestore provides automatically) and filtered to
+ * active client-side, so no composite index is required.
+ */
+export async function listRecentDocuments(max = 5): Promise<DocumentRecord[]> {
+  const q = query(
+    collection(db, "documents"),
+    orderBy("uploadedAt", "desc"),
+    limit(max * 3),
+  );
+  const snap = await getDocs(q);
+  return snap.docs
+    .map((d) => {
+      const data = d.data();
+      return {
+        id: d.id,
+        candidateId: data.candidateId,
+        jobId: data.jobId,
+        docType: data.docType,
+        fileName: data.fileName,
+        mimeType: data.mimeType,
+        size: data.size,
+        storagePath: data.storagePath,
+        uploadedBy: data.uploadedBy,
+        uploadedAt: data.uploadedAt,
+        expiresAt: data.expiresAt ?? null,
+        status: data.status,
+      } as DocumentRecord;
+    })
+    .filter((d) => d.status === "active")
+    .slice(0, max);
+}
+
+/** Count of active document records across all candidates. */
+export async function countActiveDocuments(): Promise<number> {
+  const q = query(collection(db, "documents"), where("status", "==", "active"));
+  const snap = await getCountFromServer(q);
+  return snap.data().count;
 }
 
 export async function listUsers(): Promise<AppUser[]> {
