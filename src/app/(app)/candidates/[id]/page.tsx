@@ -125,6 +125,14 @@ export default function CandidateProfilePage() {
               <p>Email: {candidate.email || "—"}</p>
               <p>Phone: {candidate.phone || "—"}</p>
               <p>Race: {candidate.race}</p>
+              {candidate.workingExperience ? (
+                <div className="pt-2">
+                  <p className="font-medium text-slate-600">Working experience</p>
+                  <p className="mt-1 whitespace-pre-wrap text-slate-500">
+                    {candidate.workingExperience}
+                  </p>
+                </div>
+              ) : null}
               {candidate.tags.length > 0 && (
                 <div className="flex flex-wrap gap-1 pt-1">
                   {candidate.tags.map((t) => (

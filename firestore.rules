@@ -21,6 +21,7 @@ rules_version = '2';
 //   - email: string (required, <=200, may be empty)
 //   - phone: string (required, <=40, may be empty)
 //   - race: string (required, 1..50; presets or free text via Other)
+//   - workingExperience: string (required, <=2000, may be empty)
 //   - status: string (required, 'active'|'placed'|'archived')
 //   - tags: list<string> (required, <=20 items, each <=30 chars)
 //   - createdBy: string (required, == creator uid, immutable)
@@ -124,12 +125,14 @@ service cloud.firestore {
 
     // ---------------- candidates ----------------
     function isValidCandidate() {
-      return hasRequiredFields(['fullName', 'email', 'phone', 'race', 'status', 'tags', 'createdBy']) &&
-        hasOnlyAllowedFields(['fullName', 'email', 'phone', 'race', 'status', 'tags', 'createdBy', 'createdAt', 'driveFolderId']) &&
+      return hasRequiredFields(['fullName', 'email', 'phone', 'race', 'workingExperience', 'status', 'tags', 'createdBy']) &&
+        hasOnlyAllowedFields(['fullName', 'email', 'phone', 'race', 'workingExperience', 'status', 'tags', 'createdBy', 'createdAt', 'driveFolderId']) &&
         validStr('fullName', 1, 100) &&
         request.resource.data.email is string && request.resource.data.email.size() <= 200 &&
         request.resource.data.phone is string && request.resource.data.phone.size() <= 40 &&
         validStr('race', 1, 50) &&
+        request.resource.data.workingExperience is string &&
+        request.resource.data.workingExperience.size() <= 2000 &&
         request.resource.data.status in ['active', 'placed', 'archived'] &&
         validTags() &&
         (!('driveFolderId' in request.resource.data) ||

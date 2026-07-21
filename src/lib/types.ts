@@ -24,6 +24,7 @@ export interface Candidate {
   phone: string;
   /** Preset value, or a custom string when the user chose "Other". */
   race: string;
+  workingExperience: string;
   status: CandidateStatus;
   tags: string[];
   driveFolderId?: string;

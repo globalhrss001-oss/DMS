@@ -9,6 +9,7 @@ export interface CandidateFormValues {
   email: string;
   phone: string;
   race: string;
+  workingExperience: string;
   status: CandidateStatus;
   tags: string[];
 }
@@ -49,6 +50,9 @@ export default function CandidateForm({
     (initial?.status as CandidateStatus) ?? "active",
   );
   const [tags, setTags] = useState((initial?.tags ?? []).join(", "));
+  const [workingExperience, setWorkingExperience] = useState(
+    initial?.workingExperience ?? "",
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -74,6 +78,7 @@ export default function CandidateForm({
         email: email.trim(),
         phone: phone.trim(),
         race,
+        workingExperience: workingExperience.trim(),
         status,
         tags: tags
           .split(",")
@@ -162,6 +167,17 @@ export default function CandidateForm({
             ))}
           </select>
         </div>
+      </div>
+      <div>
+        <label className="label">Working experience</label>
+        <textarea
+          className="input min-h-[100px] resize-y"
+          value={workingExperience}
+          onChange={(e) => setWorkingExperience(e.target.value)}
+          placeholder="e.g. 3 years as warehouse assistant at ABC Logistics…"
+          maxLength={2000}
+          rows={4}
+        />
       </div>
       <div>
         <label className="label">Tags (comma separated)</label>
